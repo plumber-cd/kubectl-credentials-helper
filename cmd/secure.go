@@ -109,7 +109,7 @@ var secureCmd = &cobra.Command{
 								continue
 							}
 
-							if err := keychain.DeleteCredentials(cluster.Server); err != nil {
+							if err := keychain.DeleteSecret(cluster.Server); err != nil {
 								log.Fatal(err)
 							}
 							if err := keychain.CreateSecret(clusterName, cluster.Server, newCfgJsonB64); err != nil {

@@ -3,26 +3,37 @@
 
 package keychain
 
-import "github.com/danieljoos/wincred"
+import (
+	"bytes"
+	"errors"
+	"strings"
+
+	"github.com/danieljoos/wincred"
+)
 
 var (
 	ErrorDuplicateItem = errors.New("Secret already existed")
-	ErrorItemNotFound = errors.New("Secret was not found")
+	ErrorItemNotFound  = wincred.ErrElementNotFound
 )
 
 func CreateSecret(clusterName, clusterEndpoint, credentials string) error {
+	_, existing, err := GetSecret(clusterEndpoint)
+	if err != ErrorItemNotFound || existing != "" {
+		return ErrorDuplicateItem
+	}
+
 	g := wincred.NewGenericCredential(clusterEndpoint)
 	g.UserName = clusterName
 	g.CredentialBlob = []byte(credentials)
 	g.Persist = wincred.PersistLocalMachine
-	g.Attributes = []wincred.CredentialAttribute{{Keyword: "label", Value: AccessGroup}}
+	g.Attributes = []wincred.CredentialAttribute{{Keyword: "label", Value: []byte(AccessGroup)}}
 
 	return g.Write()
 }
 
-func DeleteCredentials(clusterEndpoint string) error {
+func DeleteSecret(clusterEndpoint string) error {
 	g, err := wincred.GetGenericCredential(clusterEndpoint)
-	if err != nil {
+	if err != nil && err != ErrorItemNotFound {
 		return err
 	}
 	if g == nil {
@@ -30,28 +41,28 @@ func DeleteCredentials(clusterEndpoint string) error {
 	}
 	for _, attr := range g.Attributes {
 		if strings.Compare(attr.Keyword, "label") == 0 &&
-			bytes.Compare(attr.Value, []byte(AccessGroup)) == 0 {
+			bytes.Equal(attr.Value, []byte(AccessGroup)) {
 
 			return g.Delete()
 		}
 	}
-	return ErrorItemNotFound
+	return nil
 }
 
 func GetSecret(clusterEndpoint string) (string, string, error) {
 	g, err := wincred.GetGenericCredential(clusterEndpoint)
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	if g == nil {
-		return ErrorItemNotFound
+		return "", "", ErrorItemNotFound
 	}
 	for _, attr := range g.Attributes {
 		if strings.Compare(attr.Keyword, "label") == 0 &&
-			bytes.Compare(attr.Value, []byte(AccessGroup)) == 0 {
+			bytes.Equal(attr.Value, []byte(AccessGroup)) {
 
-			return return g.UserName, string(g.CredentialBlob), nil
+			return g.UserName, string(g.CredentialBlob), nil
 		}
 	}
-	return ErrorItemNotFound
+	return "", "", ErrorItemNotFound
 }
