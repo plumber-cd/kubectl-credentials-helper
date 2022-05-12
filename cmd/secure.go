@@ -97,13 +97,19 @@ var secureCmd = &cobra.Command{
 
 					fmt.Printf("Found cluster %s (%s)\n", clusterName, cluster.Server)
 
+					var answer string
+					fmt.Printf("Create secret for %s (%s)? Type 'yes': ", clusterName, cluster.Server)
+					fmt.Scanf("%s", &answer)
+					if answer != "yes" {
+						fmt.Printf("Ok, skip %s\n", clusterName)
+						continue
+					}
+
 					if err := keychain.CreateSecret(clusterName, cluster.Server, newCfgJsonB64); err != nil {
 						if err == keychain.ErrorDuplicateItem {
 							var answer string
-
 							fmt.Printf("Secret %s already found in your keychain, replace? Type 'yes': ", clusterName)
 							fmt.Scanf("%s", &answer)
-
 							if answer != "yes" {
 								fmt.Printf("Ok, skip %s\n", clusterName)
 								continue
@@ -124,6 +130,13 @@ var secureCmd = &cobra.Command{
 				}
 			}
 
+			var answer string
+			fmt.Printf("Remove sensitive parts from the user %s? Type 'yes': ", name)
+			fmt.Scanf("%s", &answer)
+			if answer != "yes" {
+				fmt.Printf("Ok, skip %s\n", name)
+				continue
+			}
 			user.ClientCertificateData = nil
 			user.ClientKeyData = nil
 			user.Username = ""
