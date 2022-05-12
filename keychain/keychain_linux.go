@@ -6,6 +6,9 @@ package keychain
 import (
 	"errors"
 
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
+
 	"github.com/keybase/dbus"
 	"github.com/keybase/go-keychain/secretservice"
 )
@@ -15,10 +18,27 @@ var (
 	ErrorItemNotFound  = errors.New("Secret was not found")
 )
 
+func LockUnlock() {
+
+}
+
 func CreateSecret(clusterName, clusterEndpoint, credentials string) error {
+	if err := openItem(
+		clusterEndpoint,
+		func(
+			_ *secretservice.SecretService,
+			_ dbus.ObjectPath,
+			_attrs secretservice.Attributes,
+			_secret string,
+		) error {
+			return ErrorDuplicateItem
+		},
+	); err != nil && err != ErrorItemNotFound {
+		return err
+	}
+
 	srv, err := secretservice.NewService()
 	if err != nil {
-		return err
 	}
 
 	session, err := srv.OpenSession(secretservice.AuthenticationDHAES)
@@ -41,8 +61,9 @@ func CreateSecret(clusterName, clusterEndpoint, credentials string) error {
 	_, err = srv.CreateItem(
 		secretservice.DefaultCollection,
 		secretservice.NewSecretProperties(
-			AccessGroup,
+			clusterEndpoint,
 			map[string]string{
+				"label":           AccessGroup,
 				"clusterName":     clusterName,
 				"clusterEndpoint": clusterEndpoint,
 			},
@@ -55,91 +76,91 @@ func CreateSecret(clusterName, clusterEndpoint, credentials string) error {
 }
 
 func DeleteSecret(clusterEndpoint string) error {
-	srv, err := secretservice.NewService()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		_ = srv.LockItems([]dbus.ObjectPath{secretservice.DefaultCollection})
-	}()
-	if err := srv.Unlock([]dbus.ObjectPath{secretservice.DefaultCollection}); err != nil {
-		return err
-	}
-
-	item, err := getSecretItem(clusterEndpoint)
-	if err != nil {
-		return err
-	}
-
-	return srv.DeleteItem(item)
+	return openItem(
+		clusterEndpoint,
+		func(
+			srv *secretservice.SecretService,
+			item dbus.ObjectPath,
+			_ secretservice.Attributes,
+			_ string,
+		) error {
+			return srv.DeleteItem(item)
+		},
+	)
 }
 
 func GetSecret(clusterEndpoint string) (string, string, error) {
-	srv, err := secretservice.NewService()
-	if err != nil {
-		return "", "", err
-	}
-
-	session, err := srv.OpenSession(secretservice.AuthenticationDHAES)
-	if err != nil {
-		return "", "", err
-	}
-
-	defer func() {
-		_ = srv.LockItems([]dbus.ObjectPath{secretservice.DefaultCollection})
-	}()
-	if err := srv.Unlock([]dbus.ObjectPath{secretservice.DefaultCollection}); err != nil {
-		return "", "", err
-	}
-
-	item, err := getSecretItem(clusterEndpoint)
-	if err != nil {
-		return "", "", err
-	}
-
-	attrs, err := srv.GetAttributes(item)
-	if err != nil {
-		return "", "", err
-	}
-
-	secret, err := srv.GetSecret(item, *session)
-	if err != nil {
+	var attrs secretservice.Attributes
+	var secret string
+	if err := openItem(
+		clusterEndpoint,
+		func(
+			_ *secretservice.SecretService,
+			_ dbus.ObjectPath,
+			_attrs secretservice.Attributes,
+			_secret string,
+		) error {
+			attrs = _attrs
+			secret = _secret
+			return nil
+		},
+	); err != nil {
 		return "", "", err
 	}
 
 	return attrs["clusterName"], string(secret), nil
 }
 
-func getSecretItem(clusterEndpoint string) (dbus.ObjectPath, error) {
+func openItem(
+	clusterEndpoint string,
+	callback func(
+		*secretservice.SecretService,
+		dbus.ObjectPath,
+		secretservice.Attributes,
+		string,
+	) error,
+) error {
 	srv, err := secretservice.NewService()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	defer func() {
 		_ = srv.LockItems([]dbus.ObjectPath{secretservice.DefaultCollection})
 	}()
 	if err := srv.Unlock([]dbus.ObjectPath{secretservice.DefaultCollection}); err != nil {
-		return "", err
+		return err
 	}
 
 	items, err := srv.SearchCollection(
 		secretservice.DefaultCollection,
 		map[string]string{
+			"label":           AccessGroup,
 			"clusterEndpoint": clusterEndpoint,
 		},
 	)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	if len(items) == 0 {
-		return "", ErrorItemNotFound
-	}
-	if len(items) != 1 {
-		return "", ErrorDuplicateItem
+	for _, item := range items {
+		attrs, err := srv.GetAttributes(item)
+		if err != nil {
+			return err
+		}
+		if slices.Contains(maps.Keys(attrs), "label") && attrs["label"] == AccessGroup && attrs["clusterEndpoint"] == clusterEndpoint {
+			session, err := srv.OpenSession(secretservice.AuthenticationDHAES)
+			if err != nil {
+				return err
+			}
+
+			secret, err := srv.GetSecret(item, *session)
+			if err != nil {
+				return err
+			}
+			return callback(srv, item, attrs, string(secret))
+		}
 	}
 
-	return items[0], nil
+	return ErrorItemNotFound
 }

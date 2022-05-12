@@ -10,6 +10,7 @@ require (
 	github.com/spf13/afero v1.2.2
 	github.com/spf13/cobra v1.4.0
 	github.com/stretchr/testify v1.7.0
+	golang.org/x/exp v0.0.0-20220428152302-39d4317da171
 	k8s.io/client-go v0.24.0
 )
 
