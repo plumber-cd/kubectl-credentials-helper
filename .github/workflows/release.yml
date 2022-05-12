@@ -98,8 +98,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: kubectl-credentials-helper
-      - name: Show Artifacts
-        run: pwd && ls
+          path: kubectl-credentials-helper
       - name: Generate SHA256SUMS
         run: |
           cd kubectl-credentials-helper && sha256sum * > SHA256SUMS
