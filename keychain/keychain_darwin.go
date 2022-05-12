@@ -1,5 +1,5 @@
-//go:build darwin || linux
-// +build darwin linux
+//go:build darwin
+// +build darwin
 
 package keychain
 
@@ -7,6 +7,11 @@ import (
 	"fmt"
 
 	"github.com/keybase/go-keychain"
+)
+
+var (
+	ErrorDuplicateItem = keychain.ErrorDuplicateItem
+	ErrorItemNotFound  = keychain.ErrorItemNotFound
 )
 
 func CreateSecret(clusterName, clusterEndpoint, credentials string) error {

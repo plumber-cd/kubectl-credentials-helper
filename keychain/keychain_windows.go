@@ -5,6 +5,11 @@ package keychain
 
 import "github.com/danieljoos/wincred"
 
+var (
+	ErrorDuplicateItem = errors.New("Secret already existed")
+	ErrorItemNotFound = errors.New("Secret was not found")
+)
+
 func CreateSecret(clusterName, clusterEndpoint, credentials string) error {
 	g := wincred.NewGenericCredential(clusterEndpoint)
 	g.UserName = clusterName
