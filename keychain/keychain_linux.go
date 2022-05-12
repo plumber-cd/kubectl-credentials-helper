@@ -54,7 +54,7 @@ func CreateSecret(clusterName, clusterEndpoint, credentials string) error {
 	return err
 }
 
-func DeleteCredentials(clusterEndpoint string) error {
+func DeleteSecret(clusterEndpoint string) error {
 	srv, err := secretservice.NewService()
 	if err != nil {
 		return err

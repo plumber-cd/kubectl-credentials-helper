@@ -27,7 +27,7 @@ func CreateSecret(clusterName, clusterEndpoint, credentials string) error {
 	return keychain.AddItem(item)
 }
 
-func DeleteCredentials(clusterEndpoint string) error {
+func DeleteSecret(clusterEndpoint string) error {
 	item := keychain.NewItem()
 	item.SetSecClass(keychain.SecClassGenericPassword)
 	item.SetService(Service)
