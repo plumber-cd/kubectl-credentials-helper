@@ -37,6 +37,7 @@ func FileExists(filename string) (bool, error) {
 
 func init() {
 	secureCmd.Flags().StringP("kubeconfig", "c", "", "Kubeconfig path")
+	secureCmd.Flags().StringP("user", "u", "", "Secure specific user instead of all")
 
 	rootCmd.AddCommand(secureCmd)
 }
@@ -53,7 +54,20 @@ var secureCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
+		specificUser, err := cmd.Flags().GetString("user")
+		if err != nil {
+			log.Fatal(err)
+		}
+		if specificUser != "" {
+			fmt.Printf("Looking up for a specific user %s\n", specificUser)
+		}
+
 		for name, user := range cfg.AuthInfos {
+			if specificUser != "" && specificUser != name {
+				fmt.Printf("Skip user %s: not a %s\n", name, specificUser)
+				continue
+			}
+
 			if len(user.ClientCertificateData) == 0 && len(user.ClientKeyData) == 0 && user.Username == "" && user.Password == "" {
 				fmt.Printf("Skip user %s: nothing to secure\n", name)
 				continue

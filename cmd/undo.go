@@ -15,6 +15,7 @@ import (
 
 func init() {
 	undoCmd.Flags().StringP("kubeconfig", "c", "", "Kubeconfig path")
+	undoCmd.Flags().StringP("user", "u", "", "Secure specific user instead of all")
 
 	rootCmd.AddCommand(undoCmd)
 }
@@ -31,7 +32,20 @@ var undoCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
+		specificUser, err := cmd.Flags().GetString("user")
+		if err != nil {
+			log.Fatal(err)
+		}
+		if specificUser != "" {
+			fmt.Printf("Looking up for a specific user %s\n", specificUser)
+		}
+
 		for name, user := range cfg.AuthInfos {
+			if specificUser != "" && specificUser != name {
+				fmt.Printf("Skip user %s: not a %s\n", name, specificUser)
+				continue
+			}
+
 			fmt.Printf("Found user: %s\n", name)
 
 			if user.Exec == nil || !strings.HasSuffix(user.Exec.Command, executable) {
